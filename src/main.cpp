@@ -87,7 +87,7 @@ public:
         v += a * dt;
         s += v * dt;
         last_t = t;
-        if (v <= 0.035) {
+        if (v <= 0.035 && state == ST_BRAKE) {
             stop();
         }
     }
