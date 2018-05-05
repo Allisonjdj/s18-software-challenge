@@ -211,16 +211,15 @@ STATE_DEFINE(PodMachine, Stopped, PodData) {
 
 static double start_time = 0;
 
-static_assert(sizeof(float) == 4);
-static_assert(sizeof(int) == 4);
-static_assert(sizeof(double) == 8);
+static_assert(sizeof(float) == 4, "");
+static_assert(sizeof(uint32_t) == 4, "");
 
 void make_pack_i(int val, double time, char *dat, uint16_t id) {
     double t = time - start_time;
     float tp = (float) t;
     dat[0] = P_START;
     *reinterpret_cast<uint16_t *>(dat + 1) = id;
-    *reinterpret_cast<int *>(dat + 1 + 2) = val;
+    *reinterpret_cast<uint32_t *>(dat + 1 + 2) = static_cast<uint32_t>(val);
     *reinterpret_cast<float *>(dat + 1 + 2 + 4) = tp;
     dat[11] = P_END;
 }
@@ -294,7 +293,7 @@ void brake_t(double time) {
     if (pod.state == PodMachine::ST_ACCEL) {
         t1_brake += dt * 0.2f / (t1_brake + 5) * t1_brake;
     } else if (pod.state == PodMachine::ST_BRAKE) {
-        t1_brake += dt * 2f;
+        t1_brake += dt * 2;
     } else {
         if (t1_brake >= 10) {
             t1_brake -= 0.5 * dt * (t1_brake + 50) / t1_brake;
