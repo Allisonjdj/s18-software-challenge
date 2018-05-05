@@ -166,15 +166,24 @@ private:
 
 STATE_DEFINE(PodMachine, Idle, PodData) {
     state = ST_IDLE;
+    a = 0;
+    v = 0;
+    s = 0;
 }
 
 STATE_DEFINE(PodMachine, Ready, PodData) {
     state = ST_READY;
+    a = 0;
+    v = 0;
+    s = 0;
 }
 
 STATE_DEFINE(PodMachine, Accel, PodData) {
     state = ST_ACCEL;
     start_time = data->time;
+    a = 0;
+    v = 0;
+    s = 0;
 }
 
 STATE_DEFINE(PodMachine, Coast, PodData) {
@@ -188,6 +197,9 @@ STATE_DEFINE(PodMachine, Brake, PodData) {
 
 STATE_DEFINE(PodMachine, Stopped, PodData) {
     state = ST_STOPPED;
+    a = 0;
+    v = 0;
+    s = 0;
 }
 
 #define INIT    0x01

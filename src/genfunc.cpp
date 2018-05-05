@@ -19,8 +19,8 @@ private:
     double m_p;
 };
 
-struct gamma {
-    constexpr gamma(
+struct gamma_t {
+    constexpr gamma_t(
         double L,
         double k,
         double b
@@ -48,7 +48,7 @@ double sigmoid::operator()(double t) const {
     return m_L / (1 + exp(-m_k * (t - m_b))) - m_p;
 }
 
-constexpr gamma::gamma(
+constexpr gamma_t::gamma_t(
     double L,
     double k,
     double b) :
@@ -56,14 +56,14 @@ constexpr gamma::gamma(
     m_k(k),
     m_b(b) {}
 
-double gamma::operator()(double t) const {
+double gamma_t::operator()(double t) const {
     return m_k * m_L * exp(m_k * (t - m_b)) / pow(exp(m_k * (t - m_b)) - 1, 2);
 }
 
 namespace det_ {
     static constexpr sigmoid std_sigmoid(95, 2.3, 3.5, 0.3);
 
-    static constexpr gamma std_gamma(95, 2.3, 3.5);
+    static constexpr gamma_t std_gamma(95, 2.3, 3.5);
 
     static double brake_curve_disengage(double t) {
         return -116.350804153 * pow(t * 0.1, 4) * exp(-t * 0.5);
