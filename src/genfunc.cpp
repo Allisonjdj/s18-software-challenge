@@ -57,7 +57,7 @@ constexpr gamma_t::gamma_t(
     m_b(b) {}
 
 double gamma_t::operator()(double t) const {
-    return m_k * m_L * exp(m_k * (t - m_b)) / pow(exp(m_k * (t - m_b)) - 1, 2);
+    return m_k * m_L * exp(m_k * (t - m_b)) / pow(exp(m_k * (t - m_b)) + 1, 2);
 }
 
 namespace det_ {
