@@ -201,7 +201,6 @@ STATE_DEFINE(PodMachine, Stopped, PodData) {
     state = ST_STOPPED;
     a = 0;
     v = 0;
-    s = 0;
 }
 
 #endif //S18_SOFTWARE_CHALLENGE_STATEHANDLER_H
