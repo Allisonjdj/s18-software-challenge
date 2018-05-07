@@ -4,10 +4,10 @@
 
 struct sigmoid {
     constexpr sigmoid(
-        double L,
-        double k,
-        double b,
-        double p
+            double L,
+            double k,
+            double b,
+            double p
     );
 
     double operator()(double t) const;
@@ -21,9 +21,9 @@ private:
 
 struct gamma_t {
     constexpr gamma_t(
-        double L,
-        double k,
-        double b
+            double L,
+            double k,
+            double b
     );
 
     double operator()(double t) const;
@@ -35,26 +35,26 @@ private:
 };
 
 constexpr sigmoid::sigmoid(
-    double L,
-    double k,
-    double b,
-    double p) :
-    m_L(L),
-    m_k(k),
-    m_b(b),
-    m_p(p) {}
+        double L,
+        double k,
+        double b,
+        double p) :
+        m_L(L),
+        m_k(k),
+        m_b(b),
+        m_p(p) {}
 
 double sigmoid::operator()(double t) const {
     return m_L / (1 + exp(-m_k * (t - m_b))) - m_p;
 }
 
 constexpr gamma_t::gamma_t(
-    double L,
-    double k,
-    double b) :
-    m_L(L),
-    m_k(k),
-    m_b(b) {}
+        double L,
+        double k,
+        double b) :
+        m_L(L),
+        m_k(k),
+        m_b(b) {}
 
 double gamma_t::operator()(double t) const {
     return m_k * m_L * exp(m_k * (t - m_b)) / pow(exp(m_k * (t - m_b)) + 1, 2);

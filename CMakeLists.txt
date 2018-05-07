@@ -1,5 +1,5 @@
 set(VER 3.0)
-set(NAME arduino-challenge)
+set(NAME s18-software-challenge)
 
 cmake_minimum_required(VERSION ${VER})
 

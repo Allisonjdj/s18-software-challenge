@@ -40,10 +40,10 @@ public:
                           float amplitude = 1.0f,
                           float lacunarity = 2.0f,
                           float persistence = 0.5f) :
-        mFrequency(frequency),
-        mAmplitude(amplitude),
-        mLacunarity(lacunarity),
-        mPersistence(persistence) {
+            mFrequency(frequency),
+            mAmplitude(amplitude),
+            mLacunarity(lacunarity),
+            mPersistence(persistence) {
     }
 
 private:

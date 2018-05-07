@@ -1,321 +1,53 @@
 #include <Cosa/RTT.hh>
-#include <Cosa/UART.hh>
+#include <Cosa/TWI.hh>
+#include <Cosa/OutputPin.hh>
+#include <Cosa/Watchdog.hh>
 #include <Cosa/Trace.hh>
+#include <Cosa/UART.hh>
+#include <Cosa/Memory.h>
 
-#include <wlib/fsm/StateMachine.h>
+#include <wlib/stl/Bitset.h>
 
-#include "genfunc.h"
-#include "SimplexNoise.h"
-
-#ifndef ASSERT_TRUE
-#define ASSERT_TRUE
-#endif
-
-using namespace wlp;
-
-class PodData : public EventData {
-public:
-    double time;
-};
-
-class PodMachine : public StateMachine {
-public:
-    PodMachine() :
-        StateMachine(States::ST_MAX_STATES, States::ST_IDLE),
-        state(ST_IDLE),
-        a(0),
-        v(0),
-        s(0),
-        last_t(0) {}
-
-    void init(double start_time) {
-        PodData data;
-        data.time = start_time;
-        BEGIN_TRANSITION_MAP
-                TRANSITION_MAP_ENTRY(ST_READY)          // ST_IDLE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void deinit(double start_time) {
-        PodData data;
-        data.time = start_time;
-        BEGIN_TRANSITION_MAP
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                TRANSITION_MAP_ENTRY(ST_IDLE)           // ST_READY
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void start(double start_time) {
-        PodData data;
-        data.time = start_time;
-        BEGIN_TRANSITION_MAP
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                TRANSITION_MAP_ENTRY(ST_ACCEL)          // ST_READY
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void brake(double start_time) {
-        PodData data;
-        data.time = start_time;
-        BEGIN_TRANSITION_MAP
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
-                TRANSITION_MAP_ENTRY(ST_BRAKE)          // ST_ACCEL
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void noop(double) {}
-
-    void compile(double t) {
-        double dt = t - last_t;
-        v += a * dt;
-        s += v * dt;
-        last_t = t;
-        if (v <= 0.035 && state == ST_BRAKE) {
-            stop();
-        }
-    }
-
-    void stop() {
-        PodData data;
-        data.time = 0;
-        BEGIN_TRANSITION_MAP
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                TRANSITION_MAP_ENTRY(ST_STOPPED)        // ST_BRAKE
-                TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void s_accel(double time) {
-        double t = time - start_time;
-        a = p_accel(t);
-        compile(t);
-    }
-
-    void s_brake(double time) {
-        double t = time - start_time;
-        a = p_brake(t);
-        compile(t);
-    }
+#include "statehandler.h"
+#include "addresses.h"
+#include "data_provider.h"
 
 
-    void tick(double time) {
-        if (state == ST_BRAKE) { s_brake(time); }
-        else if (state == ST_ACCEL) { s_accel(time); }
-        else { noop(time); }
-    }
-
-    enum States {
-        ST_IDLE = 0,
-        ST_READY,
-        ST_ACCEL,
-        ST_COAST,
-        ST_BRAKE,
-        ST_STOPPED,
-        ST_MAX_STATES
-    };
-
-    States state;
-    double start_time;
-
-    double a;
-    double v;
-    double s;
-
-    double last_t;
-
+// A Planet X Pod Communicator is the pod software that let's the programmers
+// communicate with the Planet X Pod. It provides data from different sensors and accepts commands
+class XPodComs : public TWI::Slave {
 private:
-    phase_accel p_accel;
-    phase_brake p_brake;
+    // Buffer for request and response
+    static const uint8_t BUF_MAX = 8;
+    uint8_t m_buf[BUF_MAX]{};
 
-    STATE_DECLARE(PodMachine, Idle, PodData);
-
-    STATE_DECLARE(PodMachine, Ready, PodData);
-
-    STATE_DECLARE(PodMachine, Accel, PodData);
-
-    STATE_DECLARE(PodMachine, Coast, PodData);
-
-    STATE_DECLARE(PodMachine, Brake, PodData);
-
-    STATE_DECLARE(PodMachine, Stopped, PodData);
-
-BEGIN_STATE_MAP
-                STATE_MAP_ENTRY(&Idle)
-                STATE_MAP_ENTRY(&Ready)
-                STATE_MAP_ENTRY(&Accel)
-                STATE_MAP_ENTRY(&Coast)
-                STATE_MAP_ENTRY(&Brake)
-                STATE_MAP_ENTRY(&Stopped)
-    END_STATE_MAP
-};
-
-STATE_DEFINE(PodMachine, Idle, PodData) {
-    state = ST_IDLE;
-    a = 0;
-    v = 0;
-    s = 0;
-}
-
-STATE_DEFINE(PodMachine, Ready, PodData) {
-    state = ST_READY;
-    a = 0;
-    v = 0;
-    s = 0;
-}
-
-STATE_DEFINE(PodMachine, Accel, PodData) {
-    state = ST_ACCEL;
-    start_time = data->time;
-    a = 0;
-    v = 0;
-    s = 0;
-}
-
-STATE_DEFINE(PodMachine, Coast, PodData) {
-    state = ST_COAST;
-}
-
-STATE_DEFINE(PodMachine, Brake, PodData) {
-    state = ST_BRAKE;
-    start_time = data->time;
-}
-
-STATE_DEFINE(PodMachine, Stopped, PodData) {
-    state = ST_STOPPED;
-    a = 0;
-    v = 0;
-    s = 0;
-}
-
-#define INIT    0x01
-#define DEINIT  0x02
-#define START   0x03
-#define BRAKE   0x04
-
-#define P_START         0x56
-#define P_END           0x23
-#define STATE_ID           0xff00
-#define IMU_1           0xff51
-#define IMU_2           0xff52
-#define IMU_3           0xff53
-#define TEMP_1          0xff71
-#define TEMP_2          0xff72
-#define TEMP_3          0xff73
-#define TEMP_4          0xff74
-
-// 8 16 32 32 8
-// 1  2  4  4 1 => 12
-
-static double start_time = 0;
-
-static_assert(sizeof(float) == 4, "");
-static_assert(sizeof(uint32_t) == 4, "");
-
-void make_pack_i(int val, double time, char *dat, uint16_t id) {
-    double t = time - start_time;
-    float tp = (float) t;
-    dat[0] = P_START;
-    *reinterpret_cast<uint16_t *>(dat + 1) = id;
-    *reinterpret_cast<uint32_t *>(dat + 1 + 2) = static_cast<uint32_t>(val);
-    *reinterpret_cast<float *>(dat + 1 + 2 + 4) = tp;
-    dat[11] = P_END;
-}
-
-void make_pack_d(double val, double time, char *dat, uint16_t id) {
-    double t = time - start_time;
-    float tp = (float) t;
-    float tv = (float) val;
-    dat[0] = P_START;
-    *reinterpret_cast<uint16_t *>(dat + 1) = id;
-    *reinterpret_cast<float *>(dat + 1 + 2) = tv;
-    *reinterpret_cast<float *>(dat + 1 + 2 + 4) = tp;
-    dat[11] = P_END;
-}
-
-struct float_to_char4 {
-    union {
-        float v;
-        char c[4];
-    };
-};
-
-static PodMachine pod;
-
-void setup() {
-    RTT::begin();
-    start_time = RTT::millis() / 1000.0;
-
-    uart.begin(115200);
-    trace.begin(&uart);
-}
-
-#define IMU_ERR_PERC 7.0
-
-double imu_rand(double a, int id, double time) {
-    double maxv = a * IMU_ERR_PERC / 100.0;
-    if (maxv < 1) {
-        maxv = 1;
+public:
+    // Construct the XPod slave device
+    XPodComs() : TWI::Slave(SLAVE_ADDRESS) {
+        write_buf(m_buf, sizeof(m_buf));
+        read_buf(m_buf, sizeof(m_buf));
     }
-    double noise = SimplexNoise::noise(static_cast<float>(time), id / 10.0f, rand() / 10000.0f) * maxv;
-    return a + noise;
-}
 
-#define TEMP_ERR_VAL 2.0
+    // Request handler; events from incoming requests
+    virtual void on_request(void *buf, size_t size) override;
+};
 
-double temp_rand(double t, int id, double time) {
-    double noise = SimplexNoise::noise(static_cast<float>(time), id / 10.0f, rand() / 10000.0f) * TEMP_ERR_VAL;
-    return t + noise;
-}
+// The TWI XPodComs device
+static XPodComs xPodComs;
+static PodMachine xPod;
+static float32_t start_time = 0;
+static float32_t t1_brake = 10;
+static float32_t t3_mot = 10;
+static float32_t t4_chip = 10;
 
 static double prev_time = 0;
 
-static double t1_brake = 10;
-static double t3_mot = 10;
-static double t4_chip = 10;
 
-#include <math.h>
-
-void chip_t(double time) {
-    double t = time - start_time;
-    t4_chip = 10 + log(t + 1) * 8;
-}
-
-void mot_t(double time) {
-    double dt = time - prev_time;
-    if (pod.state == PodMachine::ST_ACCEL) {
-        t3_mot += dt / (t3_mot + 5) * t3_mot;
-    } else {
-        if (t3_mot >= 10) {
-            t3_mot -= 0.5 * dt * (t3_mot + 30) / t3_mot;
-        }
-    }
-}
-
-void brake_t(double time) {
-    double dt = time - prev_time;
-    if (pod.state == PodMachine::ST_ACCEL) {
+void brake_t(float32_t elapsed_time) {
+    double dt = elapsed_time - prev_time;
+    if (xPod.state == PodMachine::ST_ACCEL) {
         t1_brake += dt * 0.2f / (t1_brake + 5) * t1_brake;
-    } else if (pod.state == PodMachine::ST_BRAKE) {
+    } else if (xPod.state == PodMachine::ST_BRAKE) {
         t1_brake += dt * 2;
     } else {
         if (t1_brake >= 10) {
@@ -324,67 +56,141 @@ void brake_t(double time) {
     }
 }
 
-void loop() {
-    double time = RTT::millis() / 1000.0;
-    double imu_val_raw = pod.a;
-    char pack[12];
-
-    double t = time - start_time;
-
-
-    int cmd = uart.getchar();
-    if (cmd >= 0) {
-        switch (cmd) {
-            case INIT:
-                pod.init(t);
-                break;
-            case DEINIT:
-                pod.deinit(t);
-                break;
-            case START:
-                pod.start(t);
-                break;
-            case BRAKE:
-                pod.brake(t);
-                break;
-            default:
-                break;
+void mot_t(float32_t elapsed_time) {
+    double dt = elapsed_time - prev_time;
+    if (xPod.state == PodMachine::ST_ACCEL) {
+        t3_mot += dt / (t3_mot + 5) * t3_mot;
+    } else {
+        if (t3_mot >= 10) {
+            t3_mot -= 0.5 * dt * (t3_mot + 30) / t3_mot;
         }
     }
+}
 
+void chip_t(float32_t elapsedTime) {
+    t4_chip = 10 + static_cast<float32_t>(log(elapsedTime + 1)) * 8;
+}
 
-    memset(pack, 0, 12);
+void XPodComs::on_request(void *buf, size_t size) {
+    float32_t curr_time = RTT::millis() / 1000.0;
+    float32_t elapsed_time = curr_time - start_time;
+
+    uint8_t serPack[10];
+
+    // if pod is crashed, we do not send Crashed packet to both server and programmers
+    if (xPod.s >= 2000) {
+        make_packet_server(POD_CRASHED, start_time, curr_time, serPack);
+        make_pack_int(0, start_time, curr_time, m_buf, POD_CRASHED);
+
+        return;
+    }
+
+    if (size > 0) {
+        auto useBuf = static_cast<uint8_t* >(buf);
+        uint8_t start = *(useBuf);
+        uint8_t end = *(useBuf + 1 + 1 + 2 + 2);
+
+        // check if the address is correct
+        if (start == P_START && end == P_END) {
+            // get a command
+            uint32_t cmd = *(useBuf + 1);
+            bool correct = true;
+
+            switch (cmd) {
+                case INIT:
+                    xPod.init(elapsed_time);
+                    break;
+                case DEINIT:
+                    xPod.deinit(elapsed_time);
+                    break;
+                case START:
+                    xPod.start(elapsed_time);
+                    break;
+                case BRAKE:
+                    xPod.brake(elapsed_time);
+                    break;
+                default:
+                    correct = false;
+                    break;
+            }
+
+            if (!correct) {
+                // packet received had invalid command id
+                make_packet_server(INVALID_COMMAND, start_time, curr_time, serPack);
+            } else {
+                // packet received had correct command id, hence gucci
+                make_packet_server(cmd, start_time, curr_time, serPack);
+            }
+        } else {
+            // packet start or end was wrong
+            make_packet_server(INVALID_PACKET, start_time, curr_time, serPack);
+        }
+
+        uart.write(serPack, 10);
+    }
+
+    double imu_val_raw = xPod.a;
+
+    // provide sensor data continuously
+    memset(m_buf, 0, 12);
     // State
-    make_pack_i(pod.state, time, pack, STATE_ID);
-    trace << pack;
+    make_pack_int(xPod.state, start_time, curr_time, m_buf, STATE_ID);
+    trace << m_buf;
     // IMU 1
-    make_pack_d(imu_rand(imu_val_raw, IMU_1, t), time, pack, IMU_1);
-    trace << pack;
+    make_pack_float(imu_rand(imu_val_raw, IMU_1, elapsed_time), start_time, curr_time, m_buf, IMU_1);
+    trace << m_buf;
     // IMU 2
-    make_pack_d(imu_rand(imu_val_raw, IMU_2, t), time, pack, IMU_2);
-    trace << pack;
+    make_pack_float(imu_rand(imu_val_raw, IMU_2, elapsed_time), start_time, curr_time, m_buf, IMU_2);
+    trace << m_buf;
     // IMU 3
-    make_pack_d(imu_rand(imu_val_raw, IMU_3, t), time, pack, IMU_3);
-    trace << pack;
+    make_pack_float(imu_rand(imu_val_raw, IMU_3, elapsed_time), start_time, curr_time, m_buf, IMU_3);
+    trace << m_buf;
     // TEMP 1
-    make_pack_d(temp_rand(t1_brake, TEMP_1, t), time, pack, TEMP_1);
-    trace << pack;
+    make_pack_float(temp_rand(t1_brake, TEMP_1, elapsed_time), start_time, curr_time, m_buf, TEMP_1);
+    trace << m_buf;
     // TEMP 2
-    make_pack_d(temp_rand(t1_brake, TEMP_2, t), time, pack, TEMP_2);
-    trace << pack;
+    make_pack_float(temp_rand(t1_brake, TEMP_2, elapsed_time), start_time, curr_time, m_buf, TEMP_2);
+    trace << m_buf;
     // TEMP 3
-    make_pack_d(temp_rand(t3_mot, TEMP_3, t), time, pack, TEMP_3);
-    trace << pack;
+    make_pack_float(temp_rand(t3_mot, TEMP_3, elapsed_time), start_time, curr_time, m_buf, TEMP_3);
+    trace << m_buf;
     // TEMP 4
-    make_pack_d(temp_rand(t4_chip, TEMP_4, t), time, pack, TEMP_4);
-    trace << pack;
+    make_pack_float(temp_rand(t4_chip, TEMP_4, elapsed_time), start_time, curr_time, m_buf, TEMP_4);
+    trace << m_buf;
 
     // Whoops pod crashed
-    if (pod.s >= 2000) { while (1) { for (;;) { do {} while (1); }}};
+    if (xPod.s >= 2000) {
+        return;
+    }
 
-    pod.tick(t);
-    brake_t(t);
-    mot_t(t);
-    chip_t(time);
-    prev_time = t;
+    xPod.tick(elapsed_time);
+    brake_t(elapsed_time);
+    mot_t(elapsed_time);
+    chip_t(elapsed_time);
+    prev_time = elapsed_time;
+}
+
+void setup() {
+    RTT::begin();
+
+    start_time = RTT::millis() / 1000.0;
+
+    // Start trace output stream on the serial port
+    uart.begin(9600);
+    trace.begin(&uart, PSTR("CosaTWISlave: started"));
+
+    // Check amount of free memory and size of classes
+    TRACE(free_memory());
+    TRACE(sizeof(xPod));
+    TRACE(sizeof(OutputPin));
+
+    // Start the watchdog ticks counter
+    Watchdog::begin();
+
+    // Start the TWI echo device
+    xPodComs.begin();
+}
+
+void loop() {
+    Event::service();
 }
