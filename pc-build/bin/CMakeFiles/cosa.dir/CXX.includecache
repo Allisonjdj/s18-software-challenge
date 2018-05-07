@@ -1,0 +1,36 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/RTT.cpp
+RTT.hh
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/RTT.hh
+chrono
+-
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/RTT.hh
+random
+-
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/Trace.cpp
+Trace.hh
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/Trace.hh
+iostream
+-
+cstdint
+-
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/Trace.hh
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/UART.cpp
+UART.hh
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/UART.hh
+chrono
+-
+
+/Users/deep/Development/waterloop/arduino-challenge/pc-build/mock-cosa/Cosa/UART.hh
+
