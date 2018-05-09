@@ -1,5 +1,0 @@
-/Users/deep/Development/waterloop/arduino-challenge/pc-build/bin/CMakeFiles/rebuild_cache.dir
-/Users/deep/Development/waterloop/arduino-challenge/pc-build/bin/CMakeFiles/edit_cache.dir
-/Users/deep/Development/waterloop/arduino-challenge/pc-build/bin/CMakeFiles/arduino_challenge.dir
-/Users/deep/Development/waterloop/arduino-challenge/pc-build/bin/CMakeFiles/cosa.dir
-/Users/deep/Development/waterloop/arduino-challenge/pc-build/bin/CMakeFiles/wlib.dir
