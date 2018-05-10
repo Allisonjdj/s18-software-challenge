@@ -1,4 +1,5 @@
 #include "Trace.hh"
+#include "gui/app.h"
 
 #include <iostream>
 #include <cstdint>
@@ -11,9 +12,12 @@ Trace &Trace::operator<<(char *str) {
         float data = *reinterpret_cast<float *>(str + 1 + 2);
         float time = *reinterpret_cast<float *>(str + 1 + 2 + 4);
         if (id == 0xff00) {
-            printf("\n%i: (%.2f, %i)\n", id, time, *reinterpret_cast<uint32_t *>(str + 1 + 2));
+            int state = *reinterpret_cast<uint32_t *>(str + 1 + 2);
+            g_app->receive_state(time, state);
+            //printf("\n%i: (%.2f, %i)\n", id, time, *reinterpret_cast<uint32_t *>(str + 1 + 2));
         } else {
-            printf("%i: (%.2f, %.2f)\n", id, time, data);
+            g_app->receive_data(time, data, id);
+            //printf("%i: (%.2f, %.2f)\n", id, time, data);
         }
     }
 }

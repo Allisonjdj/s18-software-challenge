@@ -61,22 +61,20 @@ double gamma_t::operator()(double t) const {
 }
 
 namespace det_ {
-    static constexpr sigmoid std_sigmoid(95, 2.3, 3.5, 0.3);
-
-    static constexpr gamma_t std_gamma(95, 2.3, 3.5);
+    static constexpr gamma_t std_gamma(340, 0.37, 16.7);
 
     static double brake_curve_disengage(double t) {
         return -116.350804153 * pow(t * 0.1, 4) * exp(-t * 0.5);
     }
 
     static double brake_curve(double t) {
-        return -129.555 * pow(t * 0.1, 1.1) * exp(-t * 0.14285714285);
+        return -83 * pow(t * 0.27027, 4.3) * exp(-t * 0.52631578947);
     }
 }
 
 // tube 2000m
 
-// accelerate 7 seconds to reach 95 m/s travel 332.5m
+// accelerate 25 seconds to reach 340 m/s
 // coast for 10 seconds to reach 90 m/s travel 925m
 // brake for 5 seconds to reach 0 m/s travel 225m
 

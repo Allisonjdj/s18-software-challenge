@@ -19,18 +19,21 @@ int UART::getchar() {
 
     int ret = -1;
 
-    if (state == 0 && t > 1) {
+    if (state == 0 && t > 0.2) {
         ret = 0x01;
         state = 1;
-    } else if (state == 1 && t > 2) {
+    } else if (state == 1 && t > 0.3) {
         ret = 0x02;
         state = 2;
-    } else if (state == 2 && t > 3) {
+    } else if (state == 2 && t > 0.4) {
         ret = 0x01;
         state = 3;
-    } else if (state == 3 && t > 4) {
+    } else if (state == 3 && t > 1) {
         ret = 0x03;
         state = 4;
+    } else if (state == 4 && t > 90) {
+        ret = 0x04;
+        state = 5;
     }
 
     return ret;

@@ -83,6 +83,9 @@ public:
     void noop(double) {}
 
     void compile(double t) {
+        if (last_t > t) {
+            last_t = t;
+        }
         double dt = t - last_t;
         v += a * dt;
         s += v * dt;
@@ -204,7 +207,6 @@ STATE_DEFINE(PodMachine, Stopped, PodData) {
     state = ST_STOPPED;
     a = 0;
     v = 0;
-    s = 0;
 }
 
 #define INIT    0x01
@@ -269,10 +271,10 @@ void setup() {
     trace.begin(&uart);
 }
 
-#define IMU_ERR_PERC 7.0
+#define IMU_ERR_PERC 17.0
 
 double imu_rand(double a, int id, double time) {
-    double maxv = a * IMU_ERR_PERC / 100.0;
+    double maxv = fabs(a * IMU_ERR_PERC / 100.0);
     if (maxv < 1) {
         maxv = 1;
     }
@@ -280,7 +282,7 @@ double imu_rand(double a, int id, double time) {
     return a + noise;
 }
 
-#define TEMP_ERR_VAL 2.0
+#define TEMP_ERR_VAL 1.2
 
 double temp_rand(double t, int id, double time) {
     double noise = SimplexNoise::noise(static_cast<float>(time), id / 10.0f, rand() / 10000.0f) * TEMP_ERR_VAL;
@@ -303,10 +305,10 @@ void chip_t(double time) {
 void mot_t(double time) {
     double dt = time - prev_time;
     if (pod.state == PodMachine::ST_ACCEL) {
-        t3_mot += dt / (t3_mot + 5) * t3_mot;
+        t3_mot += dt * 2.7 / (t3_mot + 20) * t3_mot * fabs(pod.a + 4.5) / 20.0;
     } else {
         if (t3_mot >= 10) {
-            t3_mot -= 0.5 * dt * (t3_mot + 30) / t3_mot;
+            t3_mot -= 1.5 * dt * (t3_mot - 10) / (t3_mot + 10);
         }
     }
 }
@@ -314,12 +316,12 @@ void mot_t(double time) {
 void brake_t(double time) {
     double dt = time - prev_time;
     if (pod.state == PodMachine::ST_ACCEL) {
-        t1_brake += dt * 0.2f / (t1_brake + 5) * t1_brake;
+        t1_brake += dt * 0.3f / (t1_brake + 20) * t1_brake;
     } else if (pod.state == PodMachine::ST_BRAKE) {
-        t1_brake += dt * 2;
+        t1_brake += dt * 1.5 * (t1_brake + 50) / t1_brake * fabs(pod.a) / 25.0;
     } else {
         if (t1_brake >= 10) {
-            t1_brake -= 0.5 * dt * (t1_brake + 50) / t1_brake;
+            t1_brake -= 1.5 * dt * (t1_brake - 10) / (t1_brake + 10);
         }
     }
 }
@@ -379,8 +381,26 @@ void loop() {
     make_pack_d(temp_rand(t4_chip, TEMP_4, t), time, pack, TEMP_4);
     trace << pack;
 
+    make_pack_d(pod.v, time, pack, 5);
+    trace << pack;
+
+    make_pack_d(pod.a, time, pack, 6);
+    trace << pack;
+
+    make_pack_d(pod.s, time, pack, 7);
+    trace << pack;
+
+    make_pack_d(t1_brake, time, pack, 8);
+    trace << pack;
+
+    make_pack_d(t3_mot, time, pack, 9);
+    trace << pack;
+
+    make_pack_d(t4_chip, time, pack, 10);
+    trace << pack;
+
     // Whoops pod crashed
-    if (pod.s >= 2000) { while (1) { for (;;) { do {} while (1); }}};
+    if (pod.s >= 30000) { for (;;); }
 
     pod.tick(t);
     brake_t(t);
