@@ -185,13 +185,15 @@ float SimplexNoise::noise(float x) {
     float x1 = x0 - 1.0f;
 
     // Calculate the contribution from the first corner
-    float t0 = 1.0f - x0*x0;
+    float t0 = 1.0f - x0 * x0;
+
 //  if(t0 < 0.0f) t0 = 0.0f; // not possible
     t0 *= t0;
     n0 = t0 * t0 * grad(hash(i0), x0);
 
     // Calculate the contribution from the second corner
-    float t1 = 1.0f - x1*x1;
+    float t1 = 1.0f - x1 * x1;
+
 //  if(t1 < 0.0f) t1 = 0.0f; // not possible
     t1 *= t1;
     n1 = t1 * t1 * grad(hash(i1), x1);
@@ -258,7 +260,8 @@ float SimplexNoise::noise(float x, float y) {
     const int gi2 = hash(i + 1 + hash(j + 1));
 
     // Calculate the contribution from the first corner
-    float t0 = 0.5f - x0*x0 - y0*y0;
+    float t0 = 0.5f - x0 * x0 - y0 * y0;
+
     if (t0 < 0.0f) {
         n0 = 0.0f;
     } else {
@@ -267,7 +270,8 @@ float SimplexNoise::noise(float x, float y) {
     }
 
     // Calculate the contribution from the second corner
-    float t1 = 0.5f - x1*x1 - y1*y1;
+    float t1 = 0.5f - x1 * x1 - y1 * y1;
+
     if (t1 < 0.0f) {
         n1 = 0.0f;
     } else {
@@ -276,7 +280,8 @@ float SimplexNoise::noise(float x, float y) {
     }
 
     // Calculate the contribution from the third corner
-    float t2 = 0.5f - x2*x2 - y2*y2;
+    float t2 = 0.5f - x2 * x2 - y2 * y2;
+
     if (t2 < 0.0f) {
         n2 = 0.0f;
     } else {
@@ -325,19 +330,49 @@ float SimplexNoise::noise(float x, float y, float z) {
     int i2, j2, k2; // Offsets for third corner of simplex in (i,j,k) coords
     if (x0 >= y0) {
         if (y0 >= z0) {
-            i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 1; k2 = 0; // X Y Z order
+            i1 = 1;
+            j1 = 0;
+            k1 = 0;
+            i2 = 1;
+            j2 = 1;
+            k2 = 0; // X Y Z order
         } else if (x0 >= z0) {
-            i1 = 1; j1 = 0; k1 = 0; i2 = 1; j2 = 0; k2 = 1; // X Z Y order
+            i1 = 1;
+            j1 = 0;
+            k1 = 0;
+            i2 = 1;
+            j2 = 0;
+            k2 = 1; // X Z Y order
         } else {
-            i1 = 0; j1 = 0; k1 = 1; i2 = 1; j2 = 0; k2 = 1; // Z X Y order
+            i1 = 0;
+            j1 = 0;
+            k1 = 1;
+            i2 = 1;
+            j2 = 0;
+            k2 = 1; // Z X Y order
         }
     } else { // x0<y0
         if (y0 < z0) {
-            i1 = 0; j1 = 0; k1 = 1; i2 = 0; j2 = 1; k2 = 1; // Z Y X order
+            i1 = 0;
+            j1 = 0;
+            k1 = 1;
+            i2 = 0;
+            j2 = 1;
+            k2 = 1; // Z Y X order
         } else if (x0 < z0) {
-            i1 = 0; j1 = 1; k1 = 0; i2 = 0; j2 = 1; k2 = 1; // Y Z X order
+            i1 = 0;
+            j1 = 1;
+            k1 = 0;
+            i2 = 0;
+            j2 = 1;
+            k2 = 1; // Y Z X order
         } else {
-            i1 = 0; j1 = 1; k1 = 0; i2 = 1; j2 = 1; k2 = 0; // Y X Z order
+            i1 = 0;
+            j1 = 1;
+            k1 = 0;
+            i2 = 1;
+            j2 = 1;
+            k2 = 0; // Y X Z order
         }
     }
 
@@ -362,28 +397,33 @@ float SimplexNoise::noise(float x, float y, float z) {
     int gi3 = hash(i + 1 + hash(j + 1 + hash(k + 1)));
 
     // Calculate the contribution from the four corners
-    float t0 = 0.6f - x0*x0 - y0*y0 - z0*z0;
+    float t0 = 0.6f - x0 * x0 - y0 * y0 - z0 * z0;
     if (t0 < 0) {
         n0 = 0.0;
     } else {
         t0 *= t0;
         n0 = t0 * t0 * grad(gi0, x0, y0, z0);
     }
-    float t1 = 0.6f - x1*x1 - y1*y1 - z1*z1;
+    float t1 = 0.6f - x1 * x1 - y1 * y1 - z1 * z1;
+
     if (t1 < 0) {
         n1 = 0.0;
     } else {
         t1 *= t1;
         n1 = t1 * t1 * grad(gi1, x1, y1, z1);
     }
-    float t2 = 0.6f - x2*x2 - y2*y2 - z2*z2;
+
+    float t2 = 0.6f - x2 * x2 - y2 * y2 - z2 * z2;
+
     if (t2 < 0) {
         n2 = 0.0;
     } else {
         t2 *= t2;
         n2 = t2 * t2 * grad(gi2, x2, y2, z2);
     }
-    float t3 = 0.6f - x3*x3 - y3*y3 - z3*z3;
+
+    float t3 = 0.6f - x3 * x3 - y3 * y3 - z3 * z3;
+
     if (t3 < 0) {
         n3 = 0.0;
     } else {
@@ -392,7 +432,7 @@ float SimplexNoise::noise(float x, float y, float z) {
     }
     // Add contributions from each corner to get the final noise value.
     // The result is scaled to stay just inside [-1,1]
-    return 32.0f*(n0 + n1 + n2 + n3);
+    return 32.0f * (n0 + n1 + n2 + n3);
 }
 
 
@@ -405,8 +445,9 @@ float SimplexNoise::noise(float x, float y, float z) {
  * @return Noise value in the range[-1; 1], value of 0 on all integer coordinates.
  */
 float SimplexNoise::fractal(size_t octaves, float x) const {
-    float output    = 0.f;
-    float denom     = 0.f;
+    float output = 0.f;
+    float denom = 0.f;
+
     float frequency = mFrequency;
     float amplitude = mAmplitude;
 
@@ -432,7 +473,8 @@ float SimplexNoise::fractal(size_t octaves, float x) const {
  */
 float SimplexNoise::fractal(size_t octaves, float x, float y) const {
     float output = 0.f;
-    float denom  = 0.f;
+    float denom = 0.f;
+
     float frequency = mFrequency;
     float amplitude = mAmplitude;
 
@@ -459,7 +501,8 @@ float SimplexNoise::fractal(size_t octaves, float x, float y) const {
  */
 float SimplexNoise::fractal(size_t octaves, float x, float y, float z) const {
     float output = 0.f;
-    float denom  = 0.f;
+    float denom = 0.f;
+
     float frequency = mFrequency;
     float amplitude = mAmplitude;
 

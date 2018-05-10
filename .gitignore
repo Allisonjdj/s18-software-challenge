@@ -1,6 +1,15 @@
+<<<<<<< HEAD
 wcosa/
 pkg/
 .pkg/
 CMakeListsPrivate.txt
 .idea/
 cmake-build-debug/
+=======
+.pioenvs
+.piolibdeps
+CMakeListsPrivate.txt
+cmake-build-debug
+.idea/
+CMakeLists.txt
+>>>>>>> fixed communication and cleaned up the code

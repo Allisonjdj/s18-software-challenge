@@ -1,0 +1,3 @@
+[submodule "lib/wlib"]
+	path = lib/wlib
+	url = https://github.com/waterloop/wlib

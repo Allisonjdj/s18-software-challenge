@@ -1,196 +1,201 @@
-#include <Cosa/RTT.hh>
-#include <Cosa/TWI.hh>
-#include <Cosa/OutputPin.hh>
-#include <Cosa/Watchdog.hh>
-#include <Cosa/Trace.hh>
-#include <Cosa/UART.hh>
-#include <Cosa/Memory.h>
+// Include the required Wire library for I2C
+#include <Arduino.h>
+#include <Wire.h>
 
-#include <wlib/stl/Bitset.h>
-
-#include "statehandler.h"
 #include "addresses.h"
 #include "data_provider.h"
+#include "statehandler.h"
 
-
-// A Planet X Pod Communicator is the pod software that let's the programmers
-// communicate with the Planet X Pod. It provides data from different sensors and accepts commands
-class XPodComs : public TWI::Slave {
-private:
-    // Buffer for request and response
-    static const uint8_t BUF_MAX = 8;
-    uint8_t m_buf[BUF_MAX]{};
-
-public:
-    // Construct the XPod slave device
-    XPodComs() : TWI::Slave(SLAVE_ADDRESS) {
-        write_buf(m_buf, sizeof(m_buf));
-        read_buf(m_buf, sizeof(m_buf));
-    }
-
-    // Request handler; events from incoming requests
-    virtual void on_request(void *buf, size_t size) override;
-};
-
-// The TWI XPodComs device
-static XPodComs xPodComs;
-static PodMachine xPod;
-static float32_t start_time = 0;
-static float32_t t1_brake = 10;
-static float32_t t3_mot = 10;
-static float32_t t4_chip = 10;
-
+// data gen
+static float brake_temp = 10;
+static float propl_temp = 10;
+static float chip_temp = 10;
 static double prev_time = 0;
 
+// time sensitive
+long loop_start_time = 0;
+static float start_time = 0;
 
-void brake_t(float32_t elapsed_time) {
+// pod states and communication buffer
+static bool podCrashed = false;
+static PodMachine xPod;
+static uint8_t m_buffer[32];
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                                                   Data Gen                                                         */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// braking temperature curve
+void brake_t(float elapsed_time) {
     double dt = elapsed_time - prev_time;
     if (xPod.state == PodMachine::ST_ACCEL) {
-        t1_brake += dt * 0.2f / (t1_brake + 5) * t1_brake;
+        brake_temp += dt * 0.2f / (brake_temp + 5) * brake_temp;
     } else if (xPod.state == PodMachine::ST_BRAKE) {
-        t1_brake += dt * 2;
+        brake_temp += dt * 2;
     } else {
-        if (t1_brake >= 10) {
-            t1_brake -= 0.5 * dt * (t1_brake + 50) / t1_brake;
+        if (brake_temp >= 10) {
+            brake_temp -= 0.5 * dt * (brake_temp + 50) / brake_temp;
         }
     }
 }
 
-void mot_t(float32_t elapsed_time) {
+// propulsion temperature curve
+void propl_t(float elapsed_time) {
     double dt = elapsed_time - prev_time;
     if (xPod.state == PodMachine::ST_ACCEL) {
-        t3_mot += dt / (t3_mot + 5) * t3_mot;
+        propl_temp += dt / (propl_temp + 5) * propl_temp;
     } else {
-        if (t3_mot >= 10) {
-            t3_mot -= 0.5 * dt * (t3_mot + 30) / t3_mot;
+        if (propl_temp >= 10) {
+            propl_temp -= 0.5 * dt * (propl_temp + 30) / propl_temp;
         }
     }
 }
 
-void chip_t(float32_t elapsedTime) {
-    t4_chip = 10 + static_cast<float32_t>(log(elapsedTime + 1)) * 8;
+// chip temperature curve
+void chip_t(float elapsedTime) {
+    chip_temp = 10 + static_cast<float>(log(elapsedTime + 1)) * 8;
 }
 
-void XPodComs::on_request(void *buf, size_t size) {
-    float32_t curr_time = RTT::millis() / 1000.0;
-    float32_t elapsed_time = curr_time - start_time;
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                                               Communication                                                        */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-    uint8_t serPack[10];
-
-    // if pod is crashed, we do not send Crashed packet to both server and programmers
-    if (xPod.s >= 2000) {
-        make_packet_server(POD_CRASHED, start_time, curr_time, serPack);
-        make_pack_int(0, start_time, curr_time, m_buf, POD_CRASHED);
-
-        return;
+// writes binary packet to Serial
+void tubeWrite(uint8_t *buff, size_t size) {
+    // write multiple times cuz sometimes packets do not get accepted
+    for (int i = 0; i < 10; ++i) {
+        Serial.write(buff, size);
     }
+}
 
-    if (size > 0) {
-        auto useBuf = static_cast<uint8_t* >(buf);
-        uint8_t start = *(useBuf);
-        uint8_t end = *(useBuf + 1 + 1 + 2 + 2);
+// send data
+void requestEvents() {
+    Wire.write(m_buffer, 32);
+}
 
-        // check if the address is correct
-        if (start == P_START && end == P_END) {
-            // get a command
-            uint32_t cmd = *(useBuf + 1);
-            bool correct = true;
+// receive commands
+void receiveEvents(int numBytes) {
+    // elapsed time since start
+    float elapsedTime = (millis() / 1000) - start_time;
 
-            switch (cmd) {
-                case INIT:
-                    xPod.init(elapsed_time);
-                    break;
-                case DEINIT:
-                    xPod.deinit(elapsed_time);
-                    break;
-                case START:
-                    xPod.start(elapsed_time);
-                    break;
-                case BRAKE:
-                    xPod.brake(elapsed_time);
-                    break;
-                default:
-                    correct = false;
-                    break;
-            }
+    // read the command received buffer
+    uint8_t buff[numBytes];
+    Wire.readBytes(buff, (size_t) numBytes);
 
-            if (!correct) {
-                // packet received had invalid command id
-                make_packet_server(INVALID_COMMAND, start_time, curr_time, serPack);
-            } else {
-                // packet received had correct command id, hence gucci
-                make_packet_server(cmd, start_time, curr_time, serPack);
-            }
-        } else {
-            // packet start or end was wrong
-            make_packet_server(INVALID_PACKET, start_time, curr_time, serPack);
+    // create a packet for the tube server
+    uint8_t tubeBuff[3];
+    tubeBuff[0] = P_START;
+    tubeBuff[2] = P_END;
+
+    if (numBytes >= 3 && buff[0] == P_START && buff[2] == P_END) {
+        tubeBuff[1] = buff[1];
+
+        PodMachine::States beforeState = xPod.state;
+
+        switch (tubeBuff[1]) {
+            case IDLE:
+                // switch state to IDLE (they are not allowed to switch to IDLE state manually)
+                tubeBuff[1] = STATE_REJECT; // rejected by state machine
+                break;
+            case READY:
+                // switch state to READY
+                xPod.ready(elapsedTime);
+                break;
+            case ACCEL:
+                // switch state to ACCEL
+                xPod.start(elapsedTime);
+                break;
+            case COAST:
+                // switch state to COAST
+                xPod.coast(elapsedTime);
+                break;
+            case BRAKE:
+                // switch state to BRAKE
+                xPod.brake(elapsedTime);
+                break;
+            case STOP:
+                // switch state to STOP (they are not allowed to switch to STOP state manually)
+                tubeBuff[1] = STATE_REJECT;
+                break;
+            default:
+                // illegal command
+                tubeBuff[1] = INVALID_COMMAND;
+                break;
         }
 
-        uart.write(serPack, 10);
+        // state did not change
+        if (xPod.state == beforeState) {
+            tubeBuff[1] = STATE_REJECT;
+        }
+    } else {
+        tubeBuff[1] = INVALID_PACKET;
     }
 
-    double imu_val_raw = xPod.a;
-
-    // provide sensor data continuously
-    memset(m_buf, 0, 12);
-    // State
-    make_pack_int(xPod.state, start_time, curr_time, m_buf, STATE_ID);
-    trace << m_buf;
-    // IMU 1
-    make_pack_float(imu_rand(imu_val_raw, IMU_1, elapsed_time), start_time, curr_time, m_buf, IMU_1);
-    trace << m_buf;
-    // IMU 2
-    make_pack_float(imu_rand(imu_val_raw, IMU_2, elapsed_time), start_time, curr_time, m_buf, IMU_2);
-    trace << m_buf;
-    // IMU 3
-    make_pack_float(imu_rand(imu_val_raw, IMU_3, elapsed_time), start_time, curr_time, m_buf, IMU_3);
-    trace << m_buf;
-    // TEMP 1
-    make_pack_float(temp_rand(t1_brake, TEMP_1, elapsed_time), start_time, curr_time, m_buf, TEMP_1);
-    trace << m_buf;
-    // TEMP 2
-    make_pack_float(temp_rand(t1_brake, TEMP_2, elapsed_time), start_time, curr_time, m_buf, TEMP_2);
-    trace << m_buf;
-    // TEMP 3
-    make_pack_float(temp_rand(t3_mot, TEMP_3, elapsed_time), start_time, curr_time, m_buf, TEMP_3);
-    trace << m_buf;
-    // TEMP 4
-    make_pack_float(temp_rand(t4_chip, TEMP_4, elapsed_time), start_time, curr_time, m_buf, TEMP_4);
-    trace << m_buf;
-
-    // Whoops pod crashed
-    if (xPod.s >= 2000) {
-        return;
-    }
-
-    xPod.tick(elapsed_time);
-    brake_t(elapsed_time);
-    mot_t(elapsed_time);
-    chip_t(elapsed_time);
-    prev_time = elapsed_time;
+    tubeWrite(tubeBuff, 3);
 }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                                              Project Setup                                                         */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 void setup() {
-    RTT::begin();
+    // Start the I2C Bus as Slave address
+    Wire.begin(SLAVE_ADDRESS);
 
-    start_time = RTT::millis() / 1000.0;
+    // Attach a function to trigger when something is requested.
+    Wire.onRequest(requestEvents);
+    // attach a function to trigger when something is received
+    Wire.onReceive(receiveEvents);
 
-    // Start trace output stream on the serial port
-    uart.begin(9600);
-    trace.begin(&uart, PSTR("CosaTWISlave: started"));
+    start_time = millis() / 1000.0;     // timer for data (curves)
+    loop_start_time = millis();         // timer for packets per second
 
-    // Check amount of free memory and size of classes
-    TRACE(free_memory());
-    TRACE(sizeof(xPod));
-    TRACE(sizeof(OutputPin));
+    // communication with pod tube server
+    Serial.begin(9600);
 
-    // Start the watchdog ticks counter
-    Watchdog::begin();
-
-    // Start the TWI echo device
-    xPodComs.begin();
+    delay(1000);
 }
 
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+/*                                                  Curve Gen                                                         */
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
 void loop() {
-    Event::service();
+    // calculate the data 30 times per second
+    if (millis() - loop_start_time >= (1000 / 30)) {
+        float curr_time = millis() / 1000.0;
+        float elapsed_time = curr_time - start_time;
+
+        double imu_val_raw = xPod.a;
+
+        // create a sensor packet to send to the user
+        m_buffer[0] = P_START;
+        m_buffer[1] = 0;
+        m_buffer[2] = 0;
+        pack_float_value(elapsed_time, m_buffer, 3);
+        pack_float_value(imu_rand(imu_val_raw, IMU_1, elapsed_time), m_buffer, 7);
+        pack_float_value(imu_rand(imu_val_raw, IMU_2, elapsed_time), m_buffer, 11);
+        pack_float_value(imu_rand(imu_val_raw, IMU_3, elapsed_time), m_buffer, 15);
+        pack_float_value(temp_rand(brake_temp, TEMP_1, elapsed_time), m_buffer, 19);
+        pack_float_value(temp_rand(propl_temp, TEMP_2, elapsed_time), m_buffer, 23);
+        pack_float_value(temp_rand(chip_temp, TEMP_3, elapsed_time), m_buffer, 27);
+        m_buffer[31] = P_END;
+
+        xPod.tick(elapsed_time);
+        brake_t(elapsed_time);
+        propl_t(elapsed_time);
+        chip_t(elapsed_time);
+        prev_time = elapsed_time;
+    }
+
+    // stop everything when pod crashes
+    if (podCrashed) {
+        uint8_t tubeBuff[3] = {P_START, POD_CRASHED, P_END};
+        tubeWrite(tubeBuff, 3);
+
+        while (1) while (1);
+    }
 }

@@ -12,11 +12,17 @@ using namespace wlp;
 
 class PodData : public wlp::EventData {
 public:
-    double time;
+    double time{};
 };
 
 class PodMachine : public wlp::StateMachine {
 public:
+    double start_time{};
+    double a;
+    double v;
+    double s;
+    double last_t;
+
     PodMachine() :
             StateMachine(States::ST_MAX_STATES, States::ST_IDLE),
             state(ST_IDLE),
@@ -25,25 +31,12 @@ public:
             s(0),
             last_t(0) {}
 
-    void init(double start_time) {
+    void ready(double start_time) {
         PodData data;
         data.time = start_time;
         BEGIN_TRANSITION_MAP
                         TRANSITION_MAP_ENTRY(ST_READY)          // ST_IDLE
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
-    void deinit(double start_time) {
-        PodData data;
-        data.time = start_time;
-        BEGIN_TRANSITION_MAP
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                        TRANSITION_MAP_ENTRY(ST_IDLE)           // ST_READY
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
@@ -64,6 +57,19 @@ public:
         END_TRANSITION_MAP(&data, PodData)
     }
 
+    void coast(double start_time) {
+        PodData data;
+        data.time = start_time;
+        BEGIN_TRANSITION_MAP
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
+                        TRANSITION_MAP_ENTRY(ST_COAST)          // ST_ACCEL
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
+        END_TRANSITION_MAP(&data, PodData)
+    }
+
     void brake(double start_time) {
         PodData data;
         data.time = start_time;
@@ -71,8 +77,21 @@ public:
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
                         TRANSITION_MAP_ENTRY(ST_BRAKE)          // ST_ACCEL
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
+                        TRANSITION_MAP_ENTRY(ST_BRAKE)          // ST_COAST
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_BRAKE
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
+        END_TRANSITION_MAP(&data, PodData)
+    }
+
+    void stop() {
+        PodData data;
+        data.time = 0;
+        BEGIN_TRANSITION_MAP
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
+                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
+                        TRANSITION_MAP_ENTRY(ST_STOPPED)        // ST_BRAKE
                         TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
         END_TRANSITION_MAP(&data, PodData)
     }
@@ -89,19 +108,6 @@ public:
         }
     }
 
-    void stop() {
-        PodData data;
-        data.time = 0;
-        BEGIN_TRANSITION_MAP
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_IDLE
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_READY
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_ACCEL
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_COAST
-                        TRANSITION_MAP_ENTRY(ST_STOPPED)        // ST_BRAKE
-                        TRANSITION_MAP_ENTRY(EVENT_IGNORED)     // ST_STOPPED
-        END_TRANSITION_MAP(&data, PodData)
-    }
-
     void s_accel(double time) {
         double t = time - start_time;
         a = p_accel(t);
@@ -113,7 +119,6 @@ public:
         a = p_brake(t);
         compile(t);
     }
-
 
     void tick(double time) {
         if (state == ST_BRAKE) { s_brake(time); }
@@ -132,13 +137,6 @@ public:
     };
 
     States state;
-    double start_time;
-
-    double a;
-    double v;
-    double s;
-
-    double last_t;
 
 private:
     phase_accel p_accel;
@@ -201,6 +199,7 @@ STATE_DEFINE(PodMachine, Stopped, PodData) {
     state = ST_STOPPED;
     a = 0;
     v = 0;
+    s = 0;
 }
 
 #endif //S18_SOFTWARE_CHALLENGE_STATEHANDLER_H
