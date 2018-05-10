@@ -1,7 +1,6 @@
-wcosa/
-pkg/
-.pkg/
-CMakeListsPrivate.txt
 .idea/
-cmake-build-debug/
-CMakeLists.txt
+
+embedded/CMakeListsPrivate.txt
+embedded/cmake-build-debug/
+embedded/CMakeLists.txt
+embedded/.pioenvs/
