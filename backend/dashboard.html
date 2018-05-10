@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <title></title>
+</head>
+<body>
+  <input type="text" id="input" />
+  <button id="btn">send</button>
+  <script>
+  function establishConnection(){
+    console.log("Connecting...");
+    var socket = new WebSocket("ws://localhost:3333/ws");
+    socket.addEventListener('open', function(event) {
+      console.log("opened connection with server:", event);
+    });
+    socket.addEventListener('message', function(msg) {
+      console.log("recv:", msg.data);
+    });
+    socket.addEventListener('close', function(event) {
+      console.log("disconnected, retrying in 3 seconds");
+      setTimeout(establishConnection, 3000);
+    });
+    document.getElementById("btn").onclick = function(e){
+      socket.send(document.getElementById("input").value);
+    };
+  }
+  establishConnection();
+  </script>
+</body>

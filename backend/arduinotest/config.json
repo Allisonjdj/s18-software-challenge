@@ -1,0 +1,10 @@
+{
+  "board": "uno",
+  "ide": "",
+  "framework": "cosa",
+  "generator": "",
+  "port": "/dev/ttyS3",
+  "cosa-libraries": "",
+  "build-flags": "",
+  "module-flags": {}
+}
