@@ -1,0 +1,29 @@
+{
+  "name": "htv2-sockets",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Hack The Valley 2 Web Sockets Workshop",
+  "main": "app.js",
+  "scripts": {
+    "start": "node scripts/start.js",
+    "watch": "node scripts/watch.js",
+    "build": "node scripts/build.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/omarchehab98/htv2-sockets.git"
+  },
+  "author": "Omar Chehab <omarchehab98@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/omarchehab98/htv2-sockets/issues"
+  },
+  "homepage": "https://github.com/omarchehab98/htv2-sockets#readme",
+  "devDependencies": {
+    "nodemon": "^1.14.11",
+    "parcel-bundler": "^1.4.1"
+  },
+  "dependencies": {
+    "websocket": "^1.0.26"
+  }
+}

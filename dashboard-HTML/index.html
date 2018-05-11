@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+</head>
+<!-- <body background="marsbkgd.jpg" style="background-attachment:fixed;background-size: cover;width: 100%;height: 100%;"> -->
+<body style="background-attachment:fixed;background-size: cover;width: 100%;height: 100%;">
+    <h1 style="padding-left: 25px;font-size:40px;">Dashboard</h1>
+    <!-- <div id="status" style="padding-left: 25px;font-size:24px;color: white;"></div> -->
+    <div id="status" style="padding-left: 25px;font-size:24px;"></div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script type="text/javascript">
+        function updateData(dataArr){     
+            var children = $("#status").children();
+            // Make all entries black
+            if (children[0] != undefined){
+                for (var i = 0; i < children.length; i ++){ 
+                    console.log(i);
+                    children[i].setAttribute("style", "color: black;");
+                }
+            }      
+            // If local storage variables are not declared, declare them 
+            if (localStorage.getItem("IDs") == undefined){ localStorage.setItem("IDs", JSON.stringify([])); }
+            if (localStorage.getItem("status") == undefined){ localStorage.setItem("status", JSON.stringify([])); }
+            var time = new Date().toLocaleTimeString();
+            dataArr.forEach(function(data){
+                var IDsData = JSON.parse(localStorage.getItem("IDs"));
+                var statusData = JSON.parse(localStorage.getItem("status"));
+                // If the team id is already on the page and in storage
+                if (IDsData.includes(data.teamID) && $("#" + data.teamID).text() !== ""){
+                    var divElem = $("#" + data.teamID);
+                    // Empty the div element and replace the text and set the color
+                    divElem.empty();
+                    divElem.append("<div class='w3-col m6 l6'>" + data.teamID + "</div><div class='w3-col m4 l4'>" + data.status + "</div><div class='w3-col m2 l2'>" + time + "</div>");
+                    divElem[0].setAttribute("style", "color:red;");
+                } else{
+                    // Add a new div element to the parent div
+                    $("#status").append("<div class='w3-row' style='color:red;' id='" + data.teamID + "'><div class='w3-col m6 l6'>" + data.teamID + "</div><div class='w3-col m4 l4'>" + data.status + "</div><div class='w3-col m2 l2'>" + time + "</div></div>");
+                    IDsData.push(data.teamID);
+                    statusData.push(data.status);
+                    localStorage.setItem("IDs", JSON.stringify(IDsData));
+                    localStorage.setItem("status", JSON.stringify(statusData));
+                }
+            });
+        }
+
+        // Web Socket
+        function establishConnection(){
+            console.log("Connecting...");
+            var socket = new WebSocket("ws://localhost:3333");
+            socket.addEventListener('open', function(event) {
+                console.log("Opened connection with server:", event);
+                socket.send("Start connection");
+            });
+            socket.addEventListener('message', function(msg) {
+                console.log("Received:", msg.data);
+                // Call function to update front-end display
+                updateData(JSON.parse(msg.data));
+            });
+            socket.addEventListener('close', function(event) {
+                console.log("Disconnected, retrying in 3 seconds");
+                setTimeout(establishConnection, 3000);
+            });
+        }
+        establishConnection();
+    </script>
+</body>
