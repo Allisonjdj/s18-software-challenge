@@ -5,5 +5,5 @@ embedded/CMakeListsPrivate.txt
 embedded/cmake-build-debug/
 embedded/CMakeLists.txt
 embedded/.pioenvs/
-
-dashboard-HTML/node_modules/*
+embedded/.gitignore
+embedded/.travis.yml

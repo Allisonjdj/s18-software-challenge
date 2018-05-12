@@ -8,6 +8,10 @@
 #include "SimplexNoise.h"
 #include "addresses.h"
 
+// data gen
+#define IMU_ERR_PERC 17.0
+#define TEMP_ERR_VAL 1.2
+
 static_assert(sizeof(float) == 4, "");
 static_assert(sizeof(uint32_t) == 4, "");
 
@@ -16,16 +20,16 @@ void pack_float_value(float val, uint8_t *buffer, uint8_t pos) {
     *fPtr = val;
 }
 
-double imu_rand(float a, uint8_t id, float time) {
-    double maxv = a * IMU_ERR_PERC / 100.0;
+float imu_rand(float a, int id, double time) {
+    double maxv = fabs(a * IMU_ERR_PERC / 100.0);
     if (maxv < 1) {
         maxv = 1;
     }
-    float noise = SimplexNoise::noise(time, id / 10.0f, rand() / 10000.0f) * maxv;
+    float noise = SimplexNoise::noise(static_cast<float>(time), id / 10.0f, rand() / 10000.0f) * maxv;
     return a + noise;
 }
 
-double temp_rand(float t, uint8_t id, float time) {
+float temp_rand(float t, int id, float time) {
     double noise = SimplexNoise::noise(static_cast<float>(time), id / 10.0f, rand() / 10000.0f) * TEMP_ERR_VAL;
     return t + noise;
 }
