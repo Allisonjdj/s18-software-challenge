@@ -99,6 +99,9 @@ public:
     void noop(double) {}
 
     void compile(double t) {
+        if (last_t > t) {
+            last_t = t;
+        }
         double dt = t - last_t;
         v += a * dt;
         s += v * dt;
@@ -199,7 +202,6 @@ STATE_DEFINE(PodMachine, Stopped, PodData) {
     state = ST_STOPPED;
     a = 0;
     v = 0;
-    s = 0;
 }
 
 #endif //S18_SOFTWARE_CHALLENGE_STATEHANDLER_H
