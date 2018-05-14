@@ -9,20 +9,51 @@ Window {
     height: 800
     title: qsTr("Software Challenge Dashboard")
 
-    property string cmd;
-    property string stat;
+    property int tid;
+    property string err;
+    property string typ;
+    property string messag;
 
-    function updateCommand(com) {
-        cmd = com;
-    }
+//    function updateError(com) {
+//        err = com;
+//    }
 
-    function updatePodState(sta) {
-        stat = sta;
+//    function updateType(sta) {
+//        typ = sta;
+//    }
+
+//    function updateMessage(msg) {
+//        messag = msg;
+//    }
+
+    function getColour(errorString) {
+        if (errorString == "True")
+            return "red"
+        else
+            return "gold"
     }
 
     Rectangle {
         width: 845; height: 800
         color: "#c6c6c6"
+
+        ListView {
+
+            id: podView
+            // ID - team ID - uint8
+            // Error - Bool
+            // Type - String oneof("Packet", "Pod", "Command")
+            // Message - String
+
+            anchors.fill: parent
+            model: PodModel{}
+            delegate: podDelegate
+            highlight: Rectangle {
+                color: getColour(err);
+                radius: 10 }
+            highlightFollowsCurrentItem: true
+            focus: true
+        }
 
         Component {
             id: podDelegate
@@ -30,22 +61,18 @@ Window {
                 width: 845; height: 200
                 Column {
                     Text { id: teamID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 20;
-                           text: '<b>Team ID:</b> ' + team }
-                    Text { id: commandID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 20;
-                           text: '<b>Command:</b> ' + commands }
-                    Text { id: stateID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 19;
-                           text: '<b>Pod State:</b> ' + status }
+                           text: '<b>Team ID:</b> ' + model.iD }
+                    Text { id: commandTypeID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 20;
+                           text: '<b>Type:</b> ' + model.Type }
+                    Text { id: messageID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 19;
+                           text: '<b>Pod State:</b> ' + model.Message }
+                    Text { id: errorID; font.family: "Arial Narrow"; horizontalAlignment: Text.AlignHCenter; font.pointSize: 19;
+                           text: '<b>Error:</b> ' + model.Errorbool }
                 }
             }
         }
 
-        ListView {
-            anchors.fill: parent
-            model: PodModel{}
-            delegate: podDelegate
-            //highlight: Rectangle { color: "gold"; radius: 10 }
-            focus: true
-        }
+
     }
     Rectangle {
         x: 845
@@ -55,15 +82,33 @@ Window {
         color: "#848484"
         WebSocket {
                 id: socket
-                url: "ws://localhost:3333"
+                url: "wss://wloop2.localtunnel.me"
                 onTextMessageReceived: {
                     messageBox.text = messageBox.text + "\nReceived message: " + message
 
-                    // TID - team ID
-                    // Num - Pod State
+                    // ID - team ID - uint8
+                    // Error - Bool
+                    // Type - String oneof("Packet", "Pod", "Command")
+                    // Message - String
+
                     var JsonString = message;
-                    var JsonObject = parse(JsonString);
-                    updatePodState(JsonObject.Num);
+                    var JsonObject = JSON.parse(JsonString);
+//                    updateMessage(JsonObject.Message)
+//                    updateType(JsonObject.Type);
+//                    updateError(JsonObject.Error)
+                    tid = parseInt(JSON.toString(JsonObject.ID));
+                    err = JSON.toString((JsonObject.Error));
+                    typ = JSON.toString(JsonObject.Type);
+                    messag = JSON.toString(JsonObject.Message);
+
+                    podView.currentIndex = tid - 1;
+                    PodModel.setProperty(podView.currentIndex, "Errorbool", err);
+                    PodModel.setProperty(podView.currentIndex, "Type", typ);
+                    PodModel.setProperty(podView.currentIndex, "Message", messag);
+
+//                   if(err == "True") {
+//                       podView.highlightItem()
+//                   }
 
                 }
                 onStatusChanged: if (socket.status == WebSocket.Error) {

@@ -4,23 +4,27 @@ ListModel {
     id: podModel
 
     ListElement {
-        team: "1"
-        status: "Test1"
-        commands: "None"
+        iD: "1";
+        Errorbool: "True";
+        Type: "Pod";
+        Message: "POD crashed boom";
     }
     ListElement {
-        team: "2"
-        status: "Test2"
-        commands: "None"
+        iD: "2";
+        Errorbool: "False";
+        Type: "Command";
+        Message: "IDLE Ready";
     }
     ListElement {
-        team: "3"
-        status: "Uninitialized"
-        commands: "None"
+        iD: "3";
+        Errorbool: "False";
+        Type: "Command";
+        Message: "IDLE Ready";
     }
     ListElement {
-        team: "4"
-        status: "Uninitialized"
-        commands: "None"
+        iD: "4";
+        Errorbool: "True";
+        Type: "Packet";
+        Message: "Incorrect Packet Received";
     }
 }
